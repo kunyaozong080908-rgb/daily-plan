@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>每日计划 · 云同步</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4f6ef7">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="每日计划">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -733,6 +740,9 @@
   setInterval(function () { if (SECRET) pullAll(false); }, 25000);
 
   // ===== 启动 =====
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(function () {});
+  }
   var savedPwd = sessionStorage.getItem("plan_pwd");
   if (savedPwd) { SECRET = savedPwd; pullAll(false); } else { showLogin(); }
 </script>
