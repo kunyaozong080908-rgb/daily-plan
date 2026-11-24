@@ -22,5 +22,24 @@
       "type": "image/png",
       "purpose": "any maskable"
     }
+  ],
+  "widgets": [
+    {
+      "name": "每日计划小组件",
+      "description": "在桌面显示未完成的计划",
+      "tag": "plan-widget",
+      "type": "application/json",
+      "data": "widget-data.json",
+      "sizes": [
+        { "min_width": 300, "min_height": 180 }
+      ],
+      "icons": [
+        { "src": "icons/icon-192.png", "sizes": "192x192" }
+      ],
+      "update": { "period": 1800 },
+      "actions": [
+        { "action": "open-app", "label": "打开每日计划" }
+      ]
+    }
   ]
 }

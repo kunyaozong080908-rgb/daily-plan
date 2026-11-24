@@ -444,6 +444,12 @@
         document.getElementById("loginMask").classList.add("hidden");
         setSync("ok", "已同步 · 共 " + rows.length + " 天有计划");
         renderAll();
+        // 把密码同步给 Service Worker，供桌面小组件读取云端数据
+        if ("serviceWorker" in navigator) {
+          navigator.serviceWorker.ready.then(function (reg) {
+            reg.active.postMessage({ type: "secret", pwd: SECRET });
+          });
+        }
       })
       .catch(function () {
         if (firstLogin) showLogin("连接失败，请检查网络后重试");

@@ -1,0 +1,12 @@
+{
+  "ui": {
+    "type": "v2",
+    "groups": [
+      {
+        "columns": [
+          { "type": "text", "value": "加载中…" }
+        ]
+      }
+    ]
+  }
+}
