@@ -384,7 +384,7 @@
   }
   function pushDay(key) {
     var now = new Date().toISOString();
-    fetch(SUPA_URL + "/rest/v1/plans", {
+    fetch(SUPA_URL + "/rest/v1/plans?on_conflict=plan_date", {
       method: "POST",
       headers: Object.assign(authHeaders(), { "Prefer": "resolution=merge-duplicates,return=minimal" }),
       body: JSON.stringify({ plan_date: key, tasks: allData[key] || [], secret: SECRET, updated_at: now })
