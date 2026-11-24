@@ -211,6 +211,53 @@
 
   .hidden { display: none !important; }
 
+  /* ===== 日历选择弹窗 ===== */
+  .picker-mask {
+    position: fixed; inset: 0; background: rgba(15,20,35,.5);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 20;
+  }
+  .picker-card {
+    background: var(--card); border-radius: 18px;
+    width: 100%; max-width: 360px; padding: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3);
+  }
+  .picker-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .picker-head button {
+    width: 36px; height: 36px; border: none; border-radius: 10px;
+    background: var(--primary-light); color: var(--primary);
+    font-size: 17px; cursor: pointer;
+  }
+  .picker-title { font-size: 16px; font-weight: 700; }
+  .cal-week, .cal-grid {
+    display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px;
+  }
+  .cal-week span {
+    text-align: center; font-size: 12px; color: var(--sub);
+    padding: 6px 0; font-weight: 600;
+  }
+  .cal-cell {
+    text-align: center; font-size: 14px; padding: 9px 0;
+    border-radius: 9px; cursor: pointer;
+  }
+  .cal-cell:hover { background: var(--primary-light); color: var(--primary); }
+  .cal-cell.empty { cursor: default; }
+  .cal-cell.empty:hover { background: transparent; color: inherit; }
+  .cal-cell.today {
+    background: var(--primary); color: #fff; font-weight: 700;
+  }
+  .cal-cell.today:hover { color: #fff; }
+  .picker-cancel {
+    width: 100%; margin-top: 14px; border: 1.5px solid var(--border);
+    background: transparent; color: var(--sub); font-size: 14px;
+    font-family: inherit; padding: 10px; border-radius: 10px; cursor: pointer;
+  }
+  .picker-cancel:hover { border-color: var(--primary); color: var(--primary); }
+  .date-center { cursor: pointer; }
+
   @media (max-width: 420px) {
     header h1 { font-size: 22px; }
     .add-row button { padding: 0 16px; }
@@ -229,6 +276,22 @@
     <input type="password" id="pwdInput" placeholder="请输入密码" maxlength="60">
     <button id="loginBtn">进入</button>
     <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- ===== 日历选择弹窗 ===== -->
+<div class="picker-mask hidden" id="pickerMask">
+  <div class="picker-card">
+    <div class="picker-head">
+      <button id="calPrev" title="上一月">‹</button>
+      <div class="picker-title" id="pickerTitle"></div>
+      <button id="calNext" title="下一月">›</button>
+    </div>
+    <div class="cal-week">
+      <span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span><span>日</span>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <button class="picker-cancel" id="pickerCancel">取消</button>
   </div>
 </div>
 
@@ -555,36 +618,83 @@
       scheduleSync(day);
     }
 
-    // ===== 修改日期（移动到另一天） =====
+    // ===== 修改日期（日历选择，移动到另一天） =====
     if (e.target.hasAttribute("data-move")) {
       var mi = parseInt(e.target.getAttribute("data-move"), 10);
-      var nd = prompt("输入要改到的日期（格式 2026-11-25）：", day);
-      if (nd === null) return;
-      var parts = nd.split("-");
-      if (parts.length !== 3) { alert("日期格式不正确"); return; }
-      var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
-      if (isNaN(d.getTime())) { alert("日期格式不正确"); return; }
-      var newKey = toKey(d);
-      if (newKey === day) return;
-      var moved = allData[day][mi];
-      allData[day].splice(mi, 1);
-      if (!allData[newKey]) allData[newKey] = [];
-      allData[newKey].push(moved);
-      renderAll();
-      scheduleSync(day);
-      scheduleSync(newKey);
+      var oldDay = day;
+      var oldIdx = mi;
+      openPicker(new Date(day + "T00:00:00"), function (newKey) {
+        if (newKey === oldDay) return;
+        var moved = allData[oldDay][oldIdx];
+        allData[oldDay].splice(oldIdx, 1);
+        if (!allData[newKey]) allData[newKey] = [];
+        allData[newKey].push(moved);
+        renderAll();
+        scheduleSync(oldDay);
+        scheduleSync(newKey);
+      });
     }
   }
 
+  // ===== 日历选择器 =====
+  var pickerYear=0, pickerMonth=0, pickerCallback=null;
+
+  function openPicker(initialDate, cb) {
+    var d = new Date(initialDate);
+    pickerYear = d.getFullYear();
+    pickerMonth = d.getMonth();
+    pickerCallback = cb;
+    document.getElementById("pickerMask").classList.remove("hidden");
+    renderPicker();
+  }
+  function closePicker() {
+    document.getElementById("pickerMask").classList.add("hidden");
+    pickerCallback = null;
+  }
+  function renderPicker() {
+    document.getElementById("pickerTitle").textContent = pickerYear + "年" + (pickerMonth+1) + "月";
+    var first = new Date(pickerYear, pickerMonth, 1);
+    var startBlank = (first.getDay() + 6) % 7;   // 周一起始
+    var days = new Date(pickerYear, pickerMonth+1, 0).getDate();
+    var html = "";
+    for (var b = 0; b < startBlank; b++) html += '<span class="cal-cell empty"></span>';
+    for (var day = 1; day <= days; day++) {
+      var key = pickerYear + "-" + pad(pickerMonth+1) + "-" + pad(day);
+      var cls = "cal-cell" + (key === toKey(new Date()) ? " today" : "");
+      html += '<span class="' + cls + '" data-pick="' + key + '">' + day + '</span>';
+    }
+    document.getElementById("calGrid").innerHTML = html;
+  }
+
+  document.getElementById("calPrev").addEventListener("click", function () {
+    pickerMonth--;
+    if (pickerMonth < 0) { pickerMonth = 11; pickerYear--; }
+    renderPicker();
+  });
+  document.getElementById("calNext").addEventListener("click", function () {
+    pickerMonth++;
+    if (pickerMonth > 11) { pickerMonth = 0; pickerYear++; }
+    renderPicker();
+  });
+  document.getElementById("pickerCancel").addEventListener("click", closePicker);
+  document.getElementById("calGrid").addEventListener("click", function (e) {
+    var key = e.target.getAttribute("data-pick");
+    if (!key) return;
+    var cb = pickerCallback;
+    closePicker();
+    if (cb) cb(key);
+  });
+
   document.getElementById("dateBig").addEventListener("click", function () {
-    var picked = prompt("输入要查看的日期（格式 2026-11-24）：", toKey(current));
-    if (!picked) return;
-    var parts = picked.split("-");
-    if (parts.length !== 3) { alert("日期格式不正确"); return; }
-    var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
-    if (isNaN(d.getTime())) { alert("日期格式不正确"); return; }
-    current = d; current.setHours(0,0,0,0);
-    renderDay();
+    openPicker(current, function (key) {
+      var parts = key.split("-");
+      current = new Date(+parts[0], +parts[1]-1, +parts[2]);
+      current.setHours(0,0,0,0);
+      renderDay();
+    });
+  });
+  document.getElementById("dateSmall").addEventListener("click", function () {
+    document.getElementById("dateBig").click();
   });
 
   // ===== 导出/导入/锁定 =====
