@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>每日计划 · 云同步</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* ===== 主题变量：浅色（默认） ===== */
+  :root, [data-theme="light"] {
+    --primary: #4f6ef7;
+    --primary-light: #eef1ff;
+    --done: #9aa3b2;
+    --danger: #f05c5c;
+    --bg: #f4f6fb;
+    --card: #ffffff;
+    --text: #222833;
+    --sub: #8a93a3;
+    --border: #e8ebf2;
+    --hover: #f8f9fd;
+  }
+
+  /* ===== 深色主题 ===== */
+  [data-theme="dark"] {
+    --primary: #7b92ff;
+    --primary-light: #2a3150;
+    --done: #5d6575;
+    --danger: #ff7676;
+    --bg: #14171f;
+    --card: #1d2330;
+    --text: #e6e9f0;
+    --sub: #8b93a5;
+    --border: #2c3344;
+    --hover: #242b3a;
+  }
+
+  /* ===== 护眼绿主题 ===== */
+  [data-theme="green"] {
+    --primary: #28a176;
+    --primary-light: #e3f4ec;
+    --done: #95a39c;
+    --danger: #e06060;
+    --bg: #eef5f1;
+    --card: #ffffff;
+    --text: #23302a;
+    --sub: #7d8f86;
+    --border: #dce8e1;
+    --hover: #f3f9f6;
+  }
+
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 48px;
+    transition: background .25s, color .25s;
+  }
+
+  .app { max-width: 640px; margin: 0 auto; }
+
+  header { text-align: center; margin-bottom: 18px; position: relative; }
+  header h1 { font-size: 26px; font-weight: 700; letter-spacing: 1px; }
+  header p { color: var(--sub); font-size: 13px; margin-top: 6px; }
+
+  #themeBtn {
+    position: absolute; right: 0; top: 2px;
+    border: 1.5px solid var(--border); background: var(--card); color: var(--sub);
+    font-size: 13px; font-family: inherit; padding: 7px 14px;
+    border-radius: 10px; cursor: pointer;
+  }
+  #themeBtn:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* ===== 视图切换 tab ===== */
+  .view-tabs {
+    display: flex; gap: 8px; background: var(--card);
+    border-radius: 12px; padding: 5px; margin-bottom: 16px;
+    box-shadow: 0 4px 16px rgba(40,60,120,.06);
+  }
+  .view-tab {
+    flex: 1; border: none; background: transparent; color: var(--sub);
+    font-size: 14px; font-family: inherit; padding: 10px;
+    border-radius: 9px; cursor: pointer;
+  }
+  .view-tab.active { background: var(--primary); color: #fff; font-weight: 600; }
+
+  /* ===== 登录遮罩 ===== */
+  .login-mask {
+    position: fixed; inset: 0;
+    background: linear-gradient(160deg, #5b78ff, #3a52d8);
+    display: flex; align-items: center; justify-content: center;
+    padding: 20px; z-index: 10;
+  }
+  .login-card {
+    background: #fff; border-radius: 18px; width: 100%; max-width: 380px;
+    padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.25); text-align: center;
+  }
+  .login-card .logo { font-size: 42px; }
+  .login-card h2 { margin: 10px 0 6px; font-size: 20px; color: #222833; }
+  .login-card p { color: #8a93a3; font-size: 13px; margin-bottom: 20px; }
+  .login-card input {
+    width: 100%; border: 1.5px solid #e8ebf2; border-radius: 12px;
+    padding: 13px 16px; font-size: 15px; font-family: inherit; outline: none;
+  }
+  .login-card input:focus { border-color: #4f6ef7; }
+  .login-card button {
+    width: 100%; margin-top: 14px; border: none; border-radius: 12px;
+    background: #4f6ef7; color: #fff; font-size: 15px;
+    padding: 13px; cursor: pointer; font-family: inherit;
+  }
+  .login-err { color: #f05c5c; font-size: 13px; margin-top: 10px; min-height: 18px; }
+
+  /* ===== 同步状态 ===== */
+  .sync-line { text-align: center; font-size: 12px; color: var(--sub); margin-bottom: 12px; min-height: 16px; }
+  .sync-line .dot { display:inline-block; width:7px; height:7px; border-radius:50%; background:#38c172; margin-right:5px; }
+  .sync-line.busy .dot { background: #f5a623; }
+  .sync-line.err .dot { background: var(--danger); }
+
+  /* ===== 日期切换栏 ===== */
+  .date-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--card); border-radius: 14px; padding: 12px 14px;
+    box-shadow: 0 4px 16px rgba(40,60,120,.06); margin-bottom: 16px;
+  }
+  .date-btn {
+    width: 38px; height: 38px; border: none; border-radius: 10px;
+    background: var(--primary-light); color: var(--primary);
+    font-size: 18px; cursor: pointer; flex-shrink: 0;
+  }
+  .date-center { text-align: center; flex: 1; padding: 0 8px; }
+  .date-center .big { font-size: 17px; font-weight: 600; }
+  .date-center .small { font-size: 12px; color: var(--sub); margin-top: 2px; }
+  .today-tag {
+    display: inline-block; margin-left: 6px; font-size: 11px; color: #fff;
+    background: var(--primary); border-radius: 6px; padding: 1px 7px; vertical-align: 2px;
+  }
+
+  /* ===== 进度条 ===== */
+  .progress-box {
+    background: var(--card); border-radius: 14px; padding: 14px 18px;
+    box-shadow: 0 4px 16px rgba(40,60,120,.06); margin-bottom: 16px;
+  }
+  .progress-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--sub); margin-bottom: 8px; }
+  .progress-text b { color: var(--primary); }
+  .progress-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary));
+    border-radius: 4px; width: 0; transition: width .3s ease;
+  }
+
+  /* ===== 添加输入 ===== */
+  .add-row { display: flex; gap: 10px; margin-bottom: 16px; }
+  .add-row input {
+    flex: 1; border: 1.5px solid var(--border); border-radius: 12px;
+    padding: 13px 16px; font-size: 15px; font-family: inherit;
+    outline: none; background: var(--card); color: var(--text);
+  }
+  .add-row input:focus { border-color: var(--primary); }
+  .add-row button {
+    border: none; border-radius: 12px; background: var(--primary);
+    color: #fff; font-size: 15px; padding: 0 22px; cursor: pointer; font-family: inherit;
+  }
+
+  /* ===== 工具栏 ===== */
+  .data-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .data-bar button {
+    border: 1.5px solid var(--border); background: var(--card); color: var(--sub);
+    font-size: 13px; font-family: inherit; padding: 8px 16px;
+    border-radius: 10px; cursor: pointer;
+  }
+  .data-bar button:hover { border-color: var(--primary); color: var(--primary); }
+
+  /* ===== 卡片/列表通用 ===== */
+  .card-box {
+    background: var(--card); border-radius: 14px; padding: 6px;
+    box-shadow: 0 4px 16px rgba(40,60,120,.06);
+  }
+  .group-title {
+    font-size: 13px; color: var(--primary); font-weight: 600;
+    padding: 12px 14px 4px;
+  }
+  .task { display: flex; align-items: center; gap: 12px; padding: 13px 12px; border-radius: 10px; }
+  .task:hover { background: var(--hover); }
+  .task + .task { border-top: 1px solid var(--border); }
+  .group-title + .task { border-top: none; }
+  .check {
+    width: 22px; height: 22px; border: 2px solid var(--border); border-radius: 50%;
+    cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  }
+  .check.checked { background: var(--primary); border-color: var(--primary); }
+  .check.checked::after {
+    content: ""; width: 6px; height: 10px;
+    border: solid #fff; border-width: 0 2px 2px 0;
+    transform: rotate(45deg) translateY(-1px);
+  }
+  .task-text { flex: 1; font-size: 15px; line-height: 1.4; word-break: break-all; }
+  .task.done .task-text { color: var(--done); text-decoration: line-through; }
+  .del {
+    border: none; background: none; color: var(--sub); font-size: 18px;
+    cursor: pointer; padding: 4px 8px; border-radius: 8px;
+  }
+  .del:hover { color: var(--danger); background: var(--primary-light); }
+  .empty { text-align: center; padding: 40px 20px; color: var(--sub); font-size: 14px; line-height: 1.8; }
+  .empty .icon { font-size: 36px; display: block; margin-bottom: 8px; }
+
+  .hidden { display: none !important; }
+
+  @media (max-width: 420px) {
+    header h1 { font-size: 22px; }
+    .add-row button { padding: 0 16px; }
+    #themeBtn { position: static; margin-top: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 登录遮罩 ===== -->
+<div class="login-mask" id="loginMask">
+  <div class="login-card">
+    <div class="logo">📋</div>
+    <h2>每日计划</h2>
+    <p>输入密码后连接云端，多设备自动同步</p>
+    <input type="password" id="pwdInput" placeholder="请输入密码" maxlength="60">
+    <button id="loginBtn">进入</button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<div class="app">
+  <header>
+    <h1>📋 每日计划</h1>
+    <p>数据保存在云端，手机电脑随时同步</p>
+    <button id="themeBtn" title="切换网页风格">🎨 浅色</button>
+  </header>
+
+  <div class="sync-line" id="syncLine"><span class="dot"></span><span id="syncText">已同步</span></div>
+
+  <!-- ===== 视图切换 ===== -->
+  <div class="view-tabs">
+    <button class="view-tab active" data-view="day">📅 每日视图</button>
+    <button class="view-tab" data-view="all">✅ 未完成汇总</button>
+  </div>
+
+  <!-- ===== 每日视图 ===== -->
+  <div id="dayView">
+    <div class="date-bar">
+      <button class="date-btn" id="prevBtn" title="前一天">‹</button>
+      <div class="date-center">
+        <div class="big" id="dateBig"></div>
+        <div class="small" id="dateSmall"></div>
+      </div>
+      <button class="date-btn" id="nextBtn" title="后一天">›</button>
+    </div>
+
+    <div class="progress-box">
+      <div class="progress-text">
+        <span>今日完成进度</span>
+        <b id="progressNum">0 / 0</b>
+      </div>
+      <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    </div>
+
+    <div class="add-row">
+      <input type="text" id="taskInput" placeholder="添加一条新计划，回车快速确认…" maxlength="100">
+      <button id="addBtn">添加</button>
+    </div>
+
+    <div class="data-bar">
+      <button id="exportBtn">📤 导出备份</button>
+      <button id="importBtn">📥 导入备份</button>
+      <button id="logoutBtn">🔒 锁定</button>
+      <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+    </div>
+
+    <div class="card-box" id="taskList"></div>
+  </div>
+
+  <!-- ===== 未完成汇总视图 ===== -->
+  <div id="allView" class="hidden">
+    <div class="card-box" id="allList"></div>
+  </div>
+</div>
+
+<script>
+  // ===== 云端配置 =====
+  var SUPA_URL = "https://expptauxhthhydkznbba.supabase.co";
+  var API_KEY = "sb_publishable_cy-DCGBUoWFUPeyFIOG40w_Zg5k2aGk";
+  var SECRET = "";
+  var allData = {};
+  var remoteUpdated = {};
+  var syncTimers = {};
+  var currentView = "day";
+
+  // ===== 日期工具 =====
+  function pad(n) { return n < 10 ? "0" + n : "" + n; }
+  function toKey(d) { return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate()); }
+  var WEEK = ["星期日","星期一","星期二","星期三","星期四","星期五","星期六"];
+  var current = new Date();
+  current.setHours(0,0,0,0);
+
+  function authHeaders() {
+    return { "apikey": API_KEY, "Authorization": "Bearer " + API_KEY, "Content-Type": "application/json" };
+  }
+  function esc(s) {
+    return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  }
+
+  // ===== 主题切换 =====
+  var THEMES = [
+    { key: "light", label: "🎨 浅色" },
+    { key: "dark", label: "🌙 深色" },
+    { key: "green", label: "🌿 护眼" }
+  ];
+  var themeIdx = 0;
+  var savedTheme = localStorage.getItem("plan_theme");
+  if (savedTheme) {
+    for (var t = 0; t < THEMES.length; t++) {
+      if (THEMES[t].key === savedTheme) themeIdx = t;
+    }
+  }
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", THEMES[themeIdx].key);
+    document.getElementById("themeBtn").textContent = THEMES[themeIdx].label;
+    localStorage.setItem("plan_theme", THEMES[themeIdx].key);
+  }
+  document.getElementById("themeBtn").addEventListener("click", function () {
+    themeIdx = (themeIdx + 1) % THEMES.length;
+    applyTheme();
+  });
+  applyTheme();
+
+  // ===== 同步状态 =====
+  function setSync(state, text) {
+    var line = document.getElementById("syncLine");
+    line.className = "sync-line" + (state === "busy" ? " busy" : state === "err" ? " err" : "");
+    document.getElementById("syncText").textContent = text;
+  }
+
+  // ===== 登录 =====
+  function doLogin() {
+    var pwd = document.getElementById("pwdInput").value;
+    if (!pwd) return;
+    SECRET = pwd;
+    document.getElementById("loginErr").textContent = "";
+    pullAll(true);
+  }
+  function showLogin(errMsg) {
+    document.getElementById("loginMask").classList.remove("hidden");
+    document.getElementById("loginErr").textContent = errMsg || "";
+    document.getElementById("pwdInput").value = "";
+    document.getElementById("pwdInput").focus();
+  }
+
+  // ===== 拉取云端 =====
+  function pullAll(firstLogin) {
+    var url = SUPA_URL + "/rest/v1/plans?select=plan_date,tasks,updated_at&secret=eq." + encodeURIComponent(SECRET);
+    fetch(url, { headers: authHeaders() })
+      .then(function (res) { if (!res.ok) throw new Error("HTTP " + res.status); return res.json(); })
+      .then(function (rows) {
+        for (var i = 0; i < rows.length; i++) {
+          var row = rows[i];
+          if (!remoteUpdated[row.plan_date] || new Date(row.updated_at) > new Date(remoteUpdated[row.plan_date])) {
+            allData[row.plan_date] = row.tasks;
+            remoteUpdated[row.plan_date] = row.updated_at;
+          }
+        }
+        sessionStorage.setItem("plan_pwd", SECRET);
+        document.getElementById("loginMask").classList.add("hidden");
+        setSync("ok", "已同步 · 共 " + rows.length + " 天有计划");
+        renderAll();
+      })
+      .catch(function () {
+        if (firstLogin) showLogin("连接失败，请检查网络后重试");
+        else setSync("err", "同步失败，将自动重试");
+      });
+  }
+
+  // ===== 推送单天 =====
+  function scheduleSync(key) {
+    if (syncTimers[key]) clearTimeout(syncTimers[key]);
+    setSync("busy", "同步中…");
+    syncTimers[key] = setTimeout(function () { pushDay(key); }, 800);
+  }
+  function pushDay(key) {
+    var now = new Date().toISOString();
+    fetch(SUPA_URL + "/rest/v1/plans", {
+      method: "POST",
+      headers: Object.assign(authHeaders(), { "Prefer": "resolution=merge-duplicates,return=minimal" }),
+      body: JSON.stringify({ plan_date: key, tasks: allData[key] || [], secret: SECRET, updated_at: now })
+    }).then(function (res) {
+      if (res.status === 401 || res.status === 403) { showLogin("密码错误或权限不足，请重新输入"); throw new Error("denied"); }
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      remoteUpdated[key] = now;
+      setSync("ok", "已同步 · " + new Date().toLocaleTimeString());
+    }).catch(function (e) {
+      if (e.message === "denied") return;
+      setSync("err", "同步失败，30 秒后自动重试");
+      setTimeout(function () { pushDay(key); }, 30000);
+    });
+  }
+
+  // ===== 渲染：每日视图 =====
+  function renderDay() {
+    var key = toKey(current);
+    if (!allData[key]) allData[key] = [];
+    var tasks = allData[key];
+
+    var bigText = current.getFullYear() + "年" + (current.getMonth()+1) + "月" + current.getDate() + "日";
+    if (key === toKey(new Date())) bigText += '<span class="today-tag">今天</span>';
+    document.getElementById("dateBig").innerHTML = bigText;
+    document.getElementById("dateSmall").textContent = WEEK[current.getDay()] + "　" + key;
+
+    var done = 0;
+    for (var i = 0; i < tasks.length; i++) if (tasks[i].done) done++;
+    var total = tasks.length;
+    document.getElementById("progressNum").textContent = done + " / " + total;
+    document.getElementById("progressFill").style.width = (total === 0 ? 0 : Math.round(done/total*100)) + "%";
+
+    if (total === 0) {
+      document.getElementById("taskList").innerHTML = '<div class="empty"><span class="icon">🗓️</span>这一天还没有计划<br>在上方输入框添加第一条吧</div>';
+      return;
+    }
+    var html = "";
+    for (var j = 0; j < tasks.length; j++) {
+      var t = tasks[j];
+      html += '<div class="task' + (t.done ? ' done' : '') + '">'
+            +   '<div class="check' + (t.done ? ' checked' : '') + '" data-day="' + key + '" data-idx="' + j + '"></div>'
+            +   '<div class="task-text">' + esc(t.text) + '</div>'
+            +   '<button class="del" data-day="' + key + '" data-del="' + j + '">✕</button>'
+            + '</div>';
+    }
+    document.getElementById("taskList").innerHTML = html;
+  }
+
+  // ===== 渲染：未完成汇总（按日期分组，只显示未完成） =====
+  function renderAllView() {
+    var dateKeys = [];
+    for (var k in allData) if (allData.hasOwnProperty(k)) dateKeys.push(k);
+    dateKeys.sort();   // 日期升序，过期的在前
+
+    var html = "";
+    var count = 0;
+    for (var i = 0; i < dateKeys.length; i++) {
+      var key = dateKeys[i];
+      var tasks = allData[key];
+      var pending = [];
+      for (var j = 0; j < tasks.length; j++) if (!tasks[j].done) pending.push(j);
+      if (pending.length === 0) continue;
+
+      var d = new Date(key + "T00:00:00");
+      var label = key + " " + WEEK[d.getDay()];
+      if (key === toKey(new Date())) label += "（今天）";
+      html += '<div class="group-title">' + label + ' · ' + pending.length + ' 条未完成</div>';
+      for (var p = 0; p < pending.length; p++) {
+        var idx = pending[p];
+        count++;
+        html += '<div class="task">'
+              +   '<div class="check" data-day="' + key + '" data-idx="' + idx + '"></div>'
+              +   '<div class="task-text">' + esc(tasks[idx].text) + '</div>'
+              +   '<button class="del" data-day="' + key + '" data-del="' + idx + '">✕</button>'
+              + '</div>';
+      }
+    }
+
+    if (count === 0) {
+      document.getElementById("allList").innerHTML = '<div class="empty"><span class="icon">🎉</span>所有计划都完成了！<br>去添加新的计划吧</div>';
+    } else {
+      document.getElementById("allList").innerHTML = html;
+    }
+  }
+
+  function renderAll() {
+    renderDay();
+    renderAllView();
+  }
+
+  // ===== 视图切换 =====
+  document.querySelectorAll(".view-tab").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      currentView = btn.getAttribute("data-view");
+      document.querySelectorAll(".view-tab").forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      if (currentView === "day") {
+        document.getElementById("dayView").classList.remove("hidden");
+        document.getElementById("allView").classList.add("hidden");
+      } else {
+        renderAllView();
+        document.getElementById("dayView").classList.add("hidden");
+        document.getElementById("allView").classList.remove("hidden");
+      }
+    });
+  });
+
+  // ===== 每日视图操作 =====
+  function addTask() {
+    var input = document.getElementById("taskInput");
+    var text = input.value.trim();
+    if (!text) return;
+    var key = toKey(current);
+    if (!allData[key]) allData[key] = [];
+    allData[key].push({ text: text, done: false });
+    input.value = "";
+    renderAll();
+    scheduleSync(key);
+  }
+  function shiftDay(delta) { current.setDate(current.getDate() + delta); renderDay(); }
+
+  document.getElementById("loginBtn").addEventListener("click", doLogin);
+  document.getElementById("pwdInput").addEventListener("keydown", function (e) { if (e.key === "Enter") doLogin(); });
+  document.getElementById("addBtn").addEventListener("click", addTask);
+  document.getElementById("taskInput").addEventListener("keydown", function (e) { if (e.key === "Enter") addTask(); });
+  document.getElementById("prevBtn").addEventListener("click", function () { shiftDay(-1); });
+  document.getElementById("nextBtn").addEventListener("click", function () { shiftDay(1); });
+
+  // ===== 两个视图统一的勾选/删除（事件委托） =====
+  document.getElementById("taskList").addEventListener("click", handleListClick);
+  document.getElementById("allList").addEventListener("click", handleListClick);
+
+  function handleListClick(e) {
+    var day = e.target.getAttribute("data-day");
+    if (!day) return;
+    var idx = parseInt(e.target.getAttribute("data-idx"), 10);
+
+    if (e.target.classList.contains("check")) {
+      allData[day][idx].done = !allData[day][idx].done;
+      renderAll();
+      scheduleSync(day);
+    }
+    if (e.target.classList.contains("del")) {
+      var di = parseInt(e.target.getAttribute("data-del"), 10);
+      allData[day].splice(di, 1);
+      renderAll();
+      scheduleSync(day);
+    }
+  }
+
+  document.getElementById("dateBig").addEventListener("click", function () {
+    var picked = prompt("输入要查看的日期（格式 2026-11-24）：", toKey(current));
+    if (!picked) return;
+    var parts = picked.split("-");
+    if (parts.length !== 3) { alert("日期格式不正确"); return; }
+    var d = new Date(parseInt(parts[0],10), parseInt(parts[1],10)-1, parseInt(parts[2],10));
+    if (isNaN(d.getTime())) { alert("日期格式不正确"); return; }
+    current = d; current.setHours(0,0,0,0);
+    renderDay();
+  });
+
+  // ===== 导出/导入/锁定 =====
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "每日计划备份-" + toKey(new Date()) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  document.getElementById("importBtn").addEventListener("click", function () { document.getElementById("importFile").click(); });
+  document.getElementById("importFile").addEventListener("change", function (e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); } catch (err) { alert("文件格式不正确"); return; }
+      for (var k in data) {
+        if (data.hasOwnProperty(k) && Array.isArray(data[k])) { allData[k] = data[k]; scheduleSync(k); }
+      }
+      renderAll();
+      alert("导入成功，正在同步到云端…");
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  });
+  document.getElementById("logoutBtn").addEventListener("click", function () {
+    sessionStorage.removeItem("plan_pwd");
+    SECRET = "";
+    showLogin();
+  });
+
+  // ===== 自动轮询 =====
+  setInterval(function () { if (SECRET) pullAll(false); }, 25000);
+
+  // ===== 启动 =====
+  var savedPwd = sessionStorage.getItem("plan_pwd");
+  if (savedPwd) { SECRET = savedPwd; pullAll(false); } else { showLogin(); }
+</script>
+</body>
+</html>
